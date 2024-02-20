@@ -1,0 +1,328 @@
+SELECT * FROM salesdatawalmart.salesforecast;
+
+-- -------------------------------------------------------------------------
+-- Additional features ( these additional features will help to break down the data further and regroup 
+-- for better analysis
+-- Time of Day
+
+SELECT time,
+(CASE 
+WHEN `time` BETWEEN "00:00:00" AND "11:59:59" THEN "Morning"
+WHEN `time` BETWEEN "12:00:00" AND "15:59:59" THEN "Afternoon"
+WHEN `time` BETWEEN "16:00:00" AND "19:59:59" THEN "Evening"
+ELSE "Night"
+END) AS time_of_day
+FROM salesforecast;
+
+ALTER TABLE salesforecast ADD COLUMN time_of_day VARCHAR(20);
+
+UPDATE salesforecast
+SET time_of_day = (
+CASE 
+WHEN `time` BETWEEN "00:00:00" AND "11:59:59" THEN "Morning"
+WHEN `time` BETWEEN "12:00:00" AND "15:59:59" THEN "Afternoon"
+WHEN `time` BETWEEN "16:00:00" AND "19:59:59" THEN "Evening"
+ELSE "Night"
+END );
+
+-- Day Name 
+SELECT 
+date, 
+DAYNAME(date)
+FROM salesforecast;
+
+ALTER TABLE salesforecast ADD COLUMN day_name VARCHAR(10);
+
+UPDATE salesforecast 
+SET day_name = DAYNAME(date);
+
+-- Month Name
+SELECT date,
+MONTHNAME(date)
+FROM salesforecast;
+
+ALTER TABLE salesforecast ADD COLUMN month_name VARCHAR(15);
+
+UPDATE salesforecast
+SET month_name = MONTHNAME(date);
+
+-- ----------------------------------------------------------------------------
+-- Exploratory Analysis 
+-- we start off with more generic questions to understand what cities walmart operates, and how many branches it has  and then go further into a deeper analysis of what products it sells.
+
+-- Distinct city and branch in the data set 
+SELECT DISTINCT city FROM salesforecast;
+
+SELECT DISTINCT branch FROM salesforecast;
+
+-- In which city is each branch?
+SELECT DISTINCT city, branch
+ FROM salesforecast;
+ 
+ -- ----------------------------------------------------------------------------------
+ -- Product Analysis 
+-- how many unique product lines does the data have 
+ SELECT 
+ COUNT(DISTINCT product_line) 
+ FROM salesforecast;
+ 
+ -- what is the most common payment method 
+ SELECT
+     payment_method, 
+     COUNT(payment_method) as cnt 
+FROM salesforecast
+GROUP BY payment_method
+ORDER BY cnt DESC;
+
+-- what is the most selling product line 
+SELECT
+    product_line,
+    COUNT(product_line) AS cnt
+FROM salesforecast
+GROUP BY Product_line
+ORDER BY cnt DESC;
+
+-- what is total revenue by month 
+SELECT
+    month_name,
+    ROUND(SUM(total), 0) AS revs 
+FROM salesforecast
+GROUP BY month_name 
+ORDER BY revs DESC;
+
+-- what month had the largest COGS
+SELECT 
+    month_name,
+    SUM(COGS) AS CGS
+FROM salesforecast
+GROUP BY month_name
+ORDER BY CGS DESC;
+
+-- COGS by product line 
+SELECT 
+    Product_line,
+    SUM(COGS) AS CGS
+FROM salesforecast
+GROUP BY Product_line
+ORDER BY CGS DESC;
+
+-- what product line has the largest revenue 
+SELECT 
+   product_line, 
+   SUM(total) AS revs
+FROM salesforecast
+GROUP BY product_line
+ORDER BY revs DESC;
+
+-- what is the city with the largest revenue 
+SELECT 
+    branch,
+    city,
+    SUM(total) AS revs
+FROM salesforecast
+GROUP BY city, branch
+ORDER BY revs DESC;
+
+-- which branch sold more products than average products sold 
+SELECT
+   branch,
+   SUM(quantity) AS qty
+FROM salesforecast
+GROUP BY branch
+HAVING SUM(quantity) > (SELECT AVG(quantity) FROM salesforecast);
+
+-- what is the most common product line by gender
+SELECT 
+   gender,
+   product_line,
+   COUNT(gender) AS total_cnt
+FROM salesforecast
+GROUP BY  gender, product_line
+ORDER BY total_cnt DESC;
+
+-- what is the average rating of each product line 
+SELECT 
+   ROUND(AVG(rating), 2) AS avg_rtng,
+   product_line
+   FROM salesforecast
+   GROUP BY product_line
+   ORDER BY avg_rtng;
+   
+   
+   -- SALES ANALYSIS
+   
+   --  number of sales made in each time of the day per weekday
+SELECT 
+   COUNT(total) AS nos,
+   time_of_day
+FROM salesforecast
+WHERE day_name IN ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday')
+GROUP BY time_of_day
+ORDER BY nos DESC;
+
+SELECT 
+   COUNT(total) AS nos,
+   time_of_day,
+   day_name
+FROM salesforecast
+WHERE day_name IN ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday')
+GROUP BY time_of_day, day_name
+ORDER BY day_name;
+
+
+SELECT 
+   COUNT(total) AS nos,
+   time_of_day
+FROM salesforecast
+WHERE day_name = 'sunday'
+GROUP BY time_of_day
+ORDER BY nos DESC;
+
+-- which of the customer types bring the most revenue?
+SELECT 
+   customer_type,
+  ROUND(SUM(total), 0) AS revs
+FROM salesforecast
+GROUP BY customer_type
+ORDER BY revs DESC;
+ 
+ -- which city has the largest tax percent
+ SELECT 
+    city,
+    ROUND(AVG(VAT),0) AS avg_vat
+FROM salesforecast
+GROUP BY city 
+ORDER BY avg_vat DESC;
+
+-- Fetch each product line and add a column to those product 
+-- line showing "Good", "Bad". Good if its greater than average sales
+
+SELECT 
+	AVG(quantity) AS avg_qnty
+FROM salesforecast;
+
+SELECT
+	product_line,
+	CASE
+		WHEN AVG(quantity) > 6 THEN "Good"
+        ELSE "Bad"
+    END AS remark
+FROM salesforecast
+GROUP BY product_line;
+
+-- --------------------------------------------------------------------------
+ 
+-- Customer Analysis 
+
+
+-- How many unique customer types does the data have?
+SELECT
+	DISTINCT customer_type
+FROM salesforecast;
+
+-- How many unique payment methods does the data have?
+SELECT
+	DISTINCT payment
+FROM salesforecast;
+
+
+-- What is the most common customer type?
+SELECT
+	customer_type,
+	count(*) as count
+FROM salesforecast
+GROUP BY customer_type
+ORDER BY count DESC;
+
+-- Which customer type buys the most?
+SELECT
+	customer_type,
+    COUNT(*)
+FROM salesforecast
+GROUP BY customer_type;
+
+
+-- What is the gender of most of the customers?
+SELECT
+	gender,
+	COUNT(*) as gender_cnt
+FROM salesforecast
+GROUP BY gender
+ORDER BY gender_cnt DESC;
+
+-- What is the gender distribution per branch?
+SELECT
+	gender,
+	COUNT(*) as gender_cnt
+FROM salesforecast
+WHERE branch = 'a'
+GROUP BY gender
+ORDER BY gender_cnt DESC;
+-- Gender per branch is more or less the same hence, I don't think has
+-- an effect of the sales per branch and other factors.
+
+-- Which time of the day do customers give most ratings?
+SELECT
+	time_of_day,
+	AVG(rating) AS avg_rating
+FROM salesforecast
+GROUP BY time_of_day
+ORDER BY avg_rating DESC;
+-- Looks like time of the day does not really affect the rating, its
+-- more or less the same rating each time of the day.alter
+
+
+-- Which time of the day do customers give most ratings per branch?
+SELECT
+	time_of_day,
+	AVG(rating) AS avg_rating
+FROM salesforecast
+WHERE branch = "A"
+GROUP BY time_of_day
+ORDER BY avg_rating DESC;
+-- Branch A and C are doing well in ratings, branch B needs to do a 
+-- little more to get better ratings.
+
+
+-- Which day fo the week has the best avg ratings?
+SELECT
+	day_name,
+	AVG(rating) AS avg_rating
+FROM salesforecast
+GROUP BY day_name 
+ORDER BY avg_rating DESC;
+-- Mon, Tue and Friday are the top best days for good ratings
+-- why is that the case, how many sales are made on these days?
+
+
+
+-- Which day of the week has the best average ratings per branch?
+SELECT 
+	day_name,
+	COUNT(day_name) total_sales
+FROM salesforecast
+WHERE branch = "C"
+GROUP BY day_name
+ORDER BY total_sales DESC;
+
+
+-- Gross profit by product line 
+SELECT 
+product_line,
+ROUND(SUM(gross_income), 0) AS gp
+FROM salesforecast
+GROUP BY product_line
+ORDER BY gp DESC;
+
+  -- Gross profit by month  
+SELECT 
+   month_name,
+   ROUND(SUM(gross_income), 0) AS gp
+FROM salesforecast
+GROUP BY month_name 
+ORDER BY gp DESC;
+
+
+
+
+
